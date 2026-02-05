@@ -9,7 +9,7 @@ function parseGroupParticipant(raw) {
   for (const sep of separators) {
     if (raw.includes(sep)) {
       const parts = raw.split(sep).map(s => s.trim());
-      if (parts.length >= 2) return { participant: parts[0], group: parts.slice(1).join(sep).trim() };  
+      if (parts.length >= 2) return { participant: parts[0], group: parts.slice(1).join(sep).trim() };
     }
   }
   return { participant: raw.trim(), group: null };
@@ -28,7 +28,13 @@ module.exports = (req, res) => {
     const groupName = (parsed && parsed.group) || groupParticipant;
 
     // create or get player
-    const player = Player.createOrGet(sender, q.sender || sender);
+    let player = Player.createOrGet(sender, q.sender || sender);
+    // If expectation expired, clear it
+    if (player && player.expected_until && Date.now() > player.expected_until) {
+      Player.clearExpectation(sender);
+      player = Player.getBySender(sender);
+    }
+
     // set kingdom from group if possible
     Player.setKingdomFromGroup(sender, groupName);
 
@@ -70,7 +76,6 @@ module.exports = (req, res) => {
     // attach notifications if any (concatenate) — notifications are shown when user sends any message
     const notes = Player.popNotifications(sender) || [];
     if (notes.length > 0) {
-      const sep = '\n════════════════\n';
       const notifText = '🔔═🔔اشعارات جديدة 🔔 ═🔔\n' + notes.map(n => n.text).join('\n' + ' ═ ═ ═ ═ ═ ═ ═ ═ ═  \n');
       chosenReply = chosenReply + '\n\n' + notifText;
     }
